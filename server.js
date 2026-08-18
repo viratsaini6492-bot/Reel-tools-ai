@@ -3,16 +3,30 @@ import cors from "cors";
 import dotenv from "dotenv";
 
 dotenv.config();
+
 const app = express();
+
 app.use(cors());
 app.use(express.json());
 app.use(express.static("public"));
 
+app.get("/", (req, res) => {
+  res.sendFile(process.cwd() + "/public/index.html");
+});
+
 app.post("/api/generate", async (req, res) => {
   try {
     const { type, topic } = req.body;
-    if (!topic?.trim()) return res.status(400).json({ error: "Topic is required." });
-    if (!process.env.OPENAI_API_KEY) return res.status(500).json({ error: "OPENAI_API_KEY is not configured on the server." });
+
+    if (!topic?.trim()) {
+      return res.status(400).json({ error: "Topic is required." });
+    }
+
+    if (!process.env.OPENAI_API_KEY) {
+      return res.status(500).json({
+        error: "OPENAI_API_KEY is not configured on the server."
+      });
+    }
 
     const prompts = {
       script: `Create a short, engaging Instagram Reel script in Hinglish about: ${topic}. Include a strong first-3-second hook, 5-7 short lines, and a memorable ending. Do not use markdown.`,
@@ -37,13 +51,21 @@ app.post("/api/generate", async (req, res) => {
     });
 
     const data = await response.json();
-    if (!response.ok) return res.status(response.status).json({ error: data?.error?.message || "AI request failed." });
 
-    res.json({ result: data.output_text || "No result returned." });
+    if (!response.ok) {
+      return res.status(response.status).json({
+        error: data?.error?.message || "AI request failed."
+      });
+    }
+
+    res.json({
+      result: data.output_text || "No result returned."
+    });
+
   } catch (e) {
+    console.error(e);
     res.status(500).json({ error: "Server error." });
   }
 });
 
-const port = process.env.PORT || 3000;
-app.listen(port, () => console.log(`ReelTools running on port ${port}`));
+export default app;
