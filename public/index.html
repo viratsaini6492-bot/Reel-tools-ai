@@ -1,0 +1,102 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>ReelTools AI</title>
+<style>
+body{margin:0;background:#0b0b12;color:#fff;font-family:Arial,sans-serif}
+.wrap{max-width:900px;margin:auto;padding:20px}
+header{display:flex;justify-content:space-between;align-items:center}
+.logo{font-size:25px;font-weight:800}
+.logo span{color:#ff4d8d}
+.hero{text-align:center;padding:55px 0 30px}
+.hero h1{font-size:48px;margin:0 0 10px}
+.hero h1 span{color:#ff4d8d}
+.hero p{color:#aaa;line-height:1.5}
+.panel{background:#151520;border:1px solid #292938;border-radius:18px;padding:22px;margin:20px 0}
+.tabs{display:flex;flex-wrap:wrap;gap:8px}
+.tab,button{border:0;border-radius:10px;padding:11px 15px;font-weight:700;cursor:pointer}
+.tab{background:#252535;color:#ddd}
+.tab.active,button{background:#ff4d8d;color:white}
+textarea{width:100%;height:110px;resize:vertical;background:#0d0d15;color:white;border:1px solid #303040;border-radius:12px;padding:14px;font-size:16px;margin:15px 0;box-sizing:border-box}
+#out{white-space:pre-wrap;line-height:1.6;background:#0d0d15;border-radius:12px;padding:16px;margin-top:15px;min-height:90px;color:#ddd}
+.note{font-size:12px;color:#888;margin-top:12px}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+<header>
+<div class="logo">Reel<span>Tools</span> AI</div>
+<span class="note">Creator tools</span>
+</header>
+
+<section class="hero">
+<h1>Create <span>Better Reels</span></h1>
+<p>AI-powered scripts, captions, stories, hashtags and bios.</p>
+</section>
+
+<div class="panel">
+
+<div class="tabs">
+<button class="tab active" data-type="script">🎬 Script</button>
+<button class="tab" data-type="caption">✨ Caption</button>
+<button class="tab" data-type="story">💔 Story</button>
+<button class="tab" data-type="hashtag">#️⃣ Hashtags</button>
+<button class="tab" data-type="bio">👤 Bio</button>
+</div>
+
+<textarea id="topic" placeholder="Example: kisi ko yaad karna, friendship, cricket..."></textarea>
+
+<button id="go">Generate with AI ✨</button>
+
+<div id="out">Your result will appear here.</div>
+
+<div class="note">
+Your API key stays on the server; never put it in this HTML.
+</div>
+
+</div>
+</div>
+
+<script>
+let type="script";
+
+document.querySelectorAll(".tab").forEach(b=>{
+b.onclick=()=>{
+document.querySelectorAll(".tab").forEach(x=>x.classList.remove("active"));
+b.classList.add("active");
+type=b.dataset.type;
+};
+});
+
+document.getElementById("go").onclick=async()=>{
+const topic=document.getElementById("topic").value.trim();
+const out=document.getElementById("out");
+
+if(!topic){
+out.textContent="Please enter a topic.";
+return;
+}
+
+out.textContent="Generating...";
+
+try{
+const r=await fetch("/api/generate",{
+method:"POST",
+headers:{"Content-Type":"application/json"},
+body:JSON.stringify({type,topic})
+});
+
+const d=await r.json();
+out.textContent=d.result||d.error||"Something went wrong.";
+
+}catch(e){
+out.textContent="Could not connect to the server.";
+}
+};
+</script>
+
+</body>
+  </html>
