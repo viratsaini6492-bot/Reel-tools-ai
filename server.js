@@ -14,12 +14,39 @@ app.get("/", (req, res) => {
   res.sendFile(new URL("./public/index.html", import.meta.url).pathname);
 });
 
+// ===============================
+// FREE AI LIMIT: 5 GENERATIONS/DAY
+// ===============================
+
+const usage = new Map();
+const DAILY_LIMIT = 5;
+
+function getToday() {
+  return new Date().toISOString().slice(0, 10);
+}
+
+function getUserKey(req) {
+  const forwarded = req.headers["x-forwarded-for"];
+
+  if (forwarded) {
+    return forwarded.split(",")[0].trim();
+  }
+
+  return req.ip || "unknown";
+}
+
+// ===============================
+// AI GENERATION
+// ===============================
+
 app.post("/api/generate", async (req, res) => {
   try {
     const { type, topic } = req.body;
 
     if (!topic?.trim()) {
-      return res.status(400).json({ error: "Topic is required." });
+      return res.status(400).json({
+        error: "Topic is required."
+      });
     }
 
     if (!process.env.OPENAI_API_KEY) {
@@ -28,27 +55,57 @@ app.post("/api/generate", async (req, res) => {
       });
     }
 
+    // -------------------------------
+    // CHECK DAILY LIMIT
+    // -------------------------------
+
+    const userKey = getUserKey(req);
+    const today = getToday();
+    const key = `${userKey}_${today}`;
+
+    const currentUsage = usage.get(key) || 0;
+
+    if (currentUsage >= DAILY_LIMIT) {
+      return res.status(429).json({
+        error: "Daily free limit reached.",
+        message:
+          "Aapki 5 free AI generations aaj complete ho gayi hain. Kal dobara try karein.",
+        limit: DAILY_LIMIT,
+        used: currentUsage,
+        remaining: 0
+      });
+    }
+
     const prompts = {
       script: `Create a short, engaging Instagram Reel script in Hinglish about: ${topic}. Include a strong first-3-second hook, 5-7 short lines, and a memorable ending. Do not use markdown.`,
+
       caption: `Write 5 catchy Instagram captions in Hinglish about: ${topic}. Keep them concise, emotional/relatable, and suitable for Reels.`,
+
       story: `Write a 20-25 line emotional Hinglish Instagram story about: ${topic}. Make the first 2 lines hook the viewer and make the ending memorable.`,
+
       hashtag: `Suggest 15 relevant Instagram hashtags for: ${topic}. Return only hashtags separated by spaces.`,
+
       bio: `Create 5 short, attractive Instagram bios for a creator whose niche is: ${topic}. Use emojis sparingly.`
     };
 
     const prompt = prompts[type] || prompts.script;
 
-    const response = await fetch("https://api.openai.com/v1/responses", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        "Authorization": `Bearer ${process.env.OPENAI_API_KEY}`
-      },
-      body: JSON.stringify({
-        model: process.env.OPENAI_MODEL || "gpt-5.6-mini",
-        input: prompt
-      })
-    });
+    const response = await fetch(
+      "https://api.openai.com/v1/responses",
+      {
+        method: "POST",
+
+        headers: {
+          "Content-Type": "application/json",
+          "Authorization": `Bearer ${process.env.OPENAI_API_KEY}`
+        },
+
+        body: JSON.stringify({
+          model: process.env.OPENAI_MODEL || "gpt-5.6-mini",
+          input: prompt
+        })
+      }
+    );
 
     const data = await response.json();
 
@@ -58,13 +115,30 @@ app.post("/api/generate", async (req, res) => {
       });
     }
 
+    // -------------------------------
+    // COUNT ONLY SUCCESSFUL GENERATION
+    // -------------------------------
+
+    const newUsage = currentUsage + 1;
+
+    usage.set(key, newUsage);
+
     res.json({
-      result: data.output_text || "No result returned."
+      result: data.output_text || "No result returned.",
+
+      usage: {
+        limit: DAILY_LIMIT,
+        used: newUsage,
+        remaining: DAILY_LIMIT - newUsage
+      }
     });
 
   } catch (e) {
     console.error(e);
-    res.status(500).json({ error: "Server error." });
+
+    res.status(500).json({
+      error: "Server error."
+    });
   }
 });
 
